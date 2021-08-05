@@ -37,8 +37,9 @@ def fasterRCNN(input_shape=(None,None,3), n_classes=80, n_anchors=9, mode='train
         # rpn_model
         rpn_model = Model([inpt, gt_inpt], rpn_loss)
         # detection head: kernel grid level prediction, [b,N,c+1] & [b,N,4c]
-        rois, roi_targets = RPNProposal(n_classes=n_classes, n_anchors=n_anchors, mode=mode)(
-                            [rpn_objectness, rpn_boxoffset, gt_inpt])
+        rois, roi_targets = RPNProposal(n_classes=n_classes, n_anchors=n_anchors, mode=mode,
+                                        top_n=500, positive_fraction=0.5, batch_size_per_img=200)(
+                                        [rpn_objectness, rpn_boxoffset, gt_inpt])
         cls_output, box_output = detector(filters_in, n_classes=n_classes)([shared_feature, rois])
         # detection loss
         detector_loss = Lambda(detection_loss, arguments={'n_classes': n_classes})([cls_output, box_output, roi_targets])
@@ -47,7 +48,7 @@ def fasterRCNN(input_shape=(None,None,3), n_classes=80, n_anchors=9, mode='train
 
     else:   # 'test' mode
         # proposals
-        rois = RPNProposal(n_classes=n_classes, n_anchors=n_anchors, mode=mode)(
+        rois = RPNProposal(n_classes=n_classes, n_anchors=n_anchors, mode=mode, top_n=200)(
                           [rpn_objectness, rpn_boxoffset])
         # rpn_model
         rpn_model = Model(inpt, [rpn_objectness, rpn_boxoffset, rois])

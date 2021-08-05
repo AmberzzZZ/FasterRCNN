@@ -111,8 +111,6 @@ repo: https://github.com/pytorch/vision/blob/43d772067fe77965ec8fc49c799de5cea44
 
     todolist:
     1. 将postprocess加进去
-    2. 将gt targets的计算加进postprocess层里面去
-    3. 将loss封装成layer加进去
 
 
 ### RPNProposal

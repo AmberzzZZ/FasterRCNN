@@ -63,7 +63,7 @@ if __name__ == '__main__':
         inpt = np.expand_dims(img/255., axis=0)   # [1,512,512,3]
         cls_output, box_output, rois = detection_model.predict(inpt)   # [b,N,c+1], [b,N,4c], [b,N,4]
 
-        ######## vis balanced sampled proposals
+        ######## vis test-time proposals
         img1 = img.copy()
         img1 = draw_box(img1, rois, line_size=2)
         cv2.imshow("proposals", img1)
