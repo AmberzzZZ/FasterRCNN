@@ -40,9 +40,9 @@ repo: https://github.com/pytorch/vision/blob/43d772067fe77965ec8fc49c799de5cea44
 
     4-step交替训练：
     1. 训练RPN
-    2. 用上一步RPN的结果训练独立的detector (冻住shared back+rpn)
-    3. 用上一步的detector初始化RPN，冻住shared back+detector，只fine-tune RPN
-    4. 然后再冻住RPN，只fine-tune detector
+    2. 用上一步RPN的结果训练独立的detector(backbone+detector+离线proposals)
+    3. 用上一步的detector初始化RPN，冻住更新后的backbone，只fine-tune RPN head
+    4. 用上一步RPN的结果fine-tune detector，保持backbone冻住，用更新的RPN提供propsals，只fine-tune detection head
 
     没有BN
     * 2016年的论文，没到那个年代

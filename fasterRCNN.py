@@ -20,33 +20,38 @@ def fasterRCNN(input_shape=(None,None,3), n_classes=80, n_anchors=9, mode='train
 
     inpt = Input(input_shape)
 
-    # shared back: s16 feature map, [b,h,w,c]
-    shared_feature = resnet_back(input_shape)(inpt)
-    filters_in = K.int_shape(shared_feature)[-1]
-
-    # rpn: feature grid level prediction, [b,h,w,k,1] & [b,h,w,k,4]
-    rpn_objectness, rpn_boxoffset = rpn(filters_in, n_anchors=n_anchors)(shared_feature)
-
     # roi: [b,N,4] & [b,N,c+1+4c]
     if mode=='train':
         # gt input
         gt_inpt = Input((None, n_classes+1+4))   # gt boxes, [b,M,c+1+4]
+        # rpn back: s16 feature map, [b,h,w,c]
+        rpn_feature = resnet_back(input_shape, name='rpn_back')(inpt)
+        filters_in = K.int_shape(rpn_feature)[-1]
+        # rpn: feature grid level prediction, [b,h,w,k,1] & [b,h,w,k,4]
+        rpn_objectness, rpn_boxoffset = rpn(filters_in, n_anchors=n_anchors)(rpn_feature)
         # rpn_loss
         rpn_targets = RPNTargets(input_hw=input_shape[:2])(gt_inpt)   # [b,h,w,a,1+4], anchor offsets
         rpn_loss = Lambda(rpnet_loss)([rpn_objectness, rpn_boxoffset, rpn_targets])
         # rpn_model
         rpn_model = Model([inpt, gt_inpt], rpn_loss)
+        # detector back: s16 feature map, [b,h,w,c]
+        det_feature = resnet_back(input_shape, name='det_back')(inpt)
         # detection head: kernel grid level prediction, [b,N,c+1] & [b,N,4c]
         rois, roi_targets = RPNProposal(n_classes=n_classes, n_anchors=n_anchors, mode=mode,
                                         top_n=500, positive_fraction=0.5, batch_size_per_img=200)(
                                         [rpn_objectness, rpn_boxoffset, gt_inpt])
-        cls_output, box_output = detector(filters_in, n_classes=n_classes)([shared_feature, rois])
+        cls_output, box_output = detector(filters_in, n_classes=n_classes)([det_feature, rois])
         # detection loss
         detector_loss = Lambda(detection_loss, arguments={'n_classes': n_classes})([cls_output, box_output, roi_targets])
         # detection model
         detection_model = Model([inpt, gt_inpt], detector_loss)
 
     else:   # 'test' mode
+        # shared back: s16 feature map, [b,h,w,c]
+        shared_feature = resnet_back(input_shape)(inpt)
+        filters_in = K.int_shape(shared_feature)[-1]
+        # rpn: feature grid level prediction, [b,h,w,k,1] & [b,h,w,k,4]
+        rpn_objectness, rpn_boxoffset = rpn(filters_in, n_anchors=n_anchors)(shared_feature)
         # proposals
         rois = RPNProposal(n_classes=n_classes, n_anchors=n_anchors, mode=mode, top_n=200)(
                           [rpn_objectness, rpn_boxoffset])
@@ -91,9 +96,12 @@ def detector(filters_in=512, n_classes=80):
 
 if __name__ == '__main__':
 
-    rpn_model, detection_model = fasterRCNN((512,512,3), mode='train')
+    from keras.utils import plot_model
 
-    rpn_model.summary()
+    rpn_model, detection_model = fasterRCNN((512,512,3), mode='train')
+    plot_model(detection_model, to_file='detection_model.png')
+
+    # rpn_model.summary()
 
     print("=========== rpn_model ===========")
     for layer in rpn_model.layers:

@@ -39,7 +39,7 @@ def vgg_back(input_shape=(None,None,3)):
     return model
 
 
-def resnet_back(input_shape=(None,None,3), depth=50):
+def resnet_back(input_shape=(None,None,3), depth=50, name='resnet'):
 
     n_blocks = {50: [3,4,6,3], 101: [3,4,23,3]}
     n_filters = [256, 512, 1024, 2048]
@@ -58,7 +58,7 @@ def resnet_back(input_shape=(None,None,3), depth=50):
             x = res_block(x, n_filters[i], strides)
 
     # model
-    model = Model(inpt, x, name='resnet')
+    model = Model(inpt, x, name=name)
     # model.load_weights("weights/r50.h5", by_name=True, skip_mismatch=True)
 
     return model

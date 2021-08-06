@@ -61,16 +61,16 @@ if __name__ == '__main__':
                                 verbose=1)
 
     elif step==2:
-        # step2: load step1 weights, freeze backbone & rpn, train detection_model
+        # step2: pretrain & std init, use step1 proposals, train detection_model
         batch_size = 8
         train_generator = dataSequence(img_dir, label_dir, n_classes, output_stride=output_stride,
                                        input_shape=input_shape, batch_size=batch_size)
         detection_model.load_weights("rpn.h5", by_name=True, skip_mismatch=True)
         # freeze rpn heads
         for layer in detection_model.layers:
-            if layer.name in ['resnet', 'rpn']:
+            if layer.name in ['rpn', 'rpn_back']:
                 layer.trainable = False
-        detection_model.compile(Adam(1e-3), loss=lambda y_true,y_pred: y_pred)
+        detection_model.compile(Adam(3e-4), loss=lambda y_true,y_pred: y_pred)
         filepath = weight_dir + "/detector_epoch_{epoch:02d}_loss_{loss:.3f}.h5"
         checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, mode='auto')
         detection_model.fit_generator(train_generator,
@@ -81,31 +81,30 @@ if __name__ == '__main__':
                                       use_multiprocessing=False,
                                       callbacks=[checkpoint],
                                       verbose=1)
-        detection_model.save_weights("detector.h5")
     elif step==3:
-        # step3: load step2 weights, freeze backbone & detector, train rpn head
+        # step3: load step2 weights, freeze backbone, train rpn head
         batch_size = 32
         rpn_model.load_weights("detector.h5", by_name=True, skip_mismatch=True)
         for layer in rpn_model.layers:
-            if layer.name in ['resnet', 'detector']:
+            if layer.name in ['rpn_back']:
                 layer.trainable = False
         rpn_model.compile(Adam(1e-4), loss=lambda y_true,y_pred: y_pred)
         filepath = weight_dir + "/rpn_ft_epoch_{epoch:02d}_loss_{loss:.3f}.h5"
         checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, mode='auto')
-        detection_model.fit_generator(train_generator,
-                                      steps_per_epoch=1,
-                                      epochs=1,
-                                      initial_epoch=0,
-                                      workers=16,
-                                      use_multiprocessing=False,
-                                      callbacks=[checkpoint],
-                                      verbose=1)
+        rpn_model.fit_generator(train_generator,
+                                steps_per_epoch=1,
+                                epochs=1,
+                                initial_epoch=0,
+                                workers=16,
+                                use_multiprocessing=False,
+                                callbacks=[checkpoint],
+                                verbose=1)
     elif step==4:
-        # step4: load step3 weights, freeze backbone & rpn, train detection head
+        # step4: load step3 weights, freeze backbone, use step3 proposals, ttrain detection head
         batch_size = 8
         detection_model.load_weights("rpn_ft.h5", by_name=True, skip_mismatch=True)
         for layer in detection_model.layers:
-            if layer.name in ['resnet', 'rpn']:
+            if layer.name in ['rpn', 'rpn_back', 'det_back']:
                 layer.trainable = False
         detection_model.compile(Adam(1e-4), loss=lambda y_true,y_pred: y_pred)
         filepath = weight_dir + "/detector_ft_epoch_{epoch:02d}_loss_{loss:.3f}.h5"
